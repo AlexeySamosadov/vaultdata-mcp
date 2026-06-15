@@ -35,3 +35,13 @@ Add to `claude_desktop_config.json`:
 Agents constantly receive CSV exports and JSON blobs and need to peek at them, convert between formats, compute quick stats, or filter rows — without round-tripping private data through a cloud service. VaultData keeps it all local. No server, no account, no upload.
 
 MIT licensed.
+
+## Pro tools — one-time crypto license, no subscription
+Free tools work forever. Pro tools (`csv_sort`, `csv_dedupe`, `csv_select`) need a license:
+
+1. Send **9 USDC on Base** to `0xe339997037C7e1C81829fA3e110d3e82B4bDd48E`
+2. [Open an issue](https://github.com/AlexeySamosadov/vaultdata-mcp/issues/new) with your **tx hash** + **email**.
+3. A bot verifies the payment on-chain and replies with your **license key**.
+4. Set `VAULTDATA_LICENSE` in your MCP config env and restart.
+
+Offline ECDSA-signed token — verified locally, never phoned home.

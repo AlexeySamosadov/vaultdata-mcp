@@ -6,11 +6,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { csvInfo, csvToJson, jsonToCsv, csvStats, csvFilter } from "./lib.mjs";
+import { csvInfo, csvToJson, jsonToCsv, csvStats, csvFilter, csvSort, csvDedupe, csvSelect } from "./lib.mjs";
+import { licenseStatus, upgradeMessage } from "./license.mjs";
 
-const server = new McpServer({ name: "vaultdata-mcp", version: "0.1.0" });
+const server = new McpServer({ name: "vaultdata-mcp", version: "0.2.0" });
 const text = t => ({ content: [{ type: "text", text: t }] });
 const wrap = fn => async (args) => {
+  try { return text(await fn(args)); }
+  catch (e) { return { isError: true, content: [{ type: "text", text: "Error: " + e.message }] }; }
+};
+const pro = fn => async (args) => {
+  const st = await licenseStatus();
+  if (!st.pro) return text(upgradeMessage(st.reason));
   try { return text(await fn(args)); }
   catch (e) { return { isError: true, content: [{ type: "text", text: "Error: " + e.message }] }; }
 };
@@ -59,5 +66,37 @@ server.registerTool("csv_filter", {
     output: z.string().describe("Absolute path to write the filtered CSV")
   }
 }, wrap(({ input, column, op, value, output }) => csvFilter(input, column, op, value, output)));
+
+/* ---- Pro tools (one-time 9 USDC license; see README) ---- */
+
+server.registerTool("csv_sort", {
+  title: "Sort CSV (Pro)",
+  description: "Pro: sort a local CSV by a column, ascending or descending (numeric-aware).",
+  inputSchema: {
+    input: z.string().describe("Absolute path to the source CSV"),
+    column: z.string().describe("Column to sort by"),
+    order: z.enum(["asc", "desc"]).optional().describe("Sort order (default asc)"),
+    output: z.string().describe("Absolute path to write the sorted CSV")
+  }
+}, pro(({ input, column, order, output }) => csvSort(input, column, order, output)));
+
+server.registerTool("csv_dedupe", {
+  title: "Dedupe CSV rows (Pro)",
+  description: "Pro: remove fully-duplicate rows from a local CSV.",
+  inputSchema: {
+    input: z.string().describe("Absolute path to the source CSV"),
+    output: z.string().describe("Absolute path to write the deduplicated CSV")
+  }
+}, pro(({ input, output }) => csvDedupe(input, output)));
+
+server.registerTool("csv_select", {
+  title: "Select CSV columns (Pro)",
+  description: "Pro: keep only the named columns (comma-separated) of a local CSV.",
+  inputSchema: {
+    input: z.string().describe("Absolute path to the source CSV"),
+    columns: z.string().describe("Comma-separated column names to keep, e.g. 'name,city'"),
+    output: z.string().describe("Absolute path to write the result")
+  }
+}, pro(({ input, columns, output }) => csvSelect(input, columns, output)));
 
 await server.connect(new StdioServerTransport());

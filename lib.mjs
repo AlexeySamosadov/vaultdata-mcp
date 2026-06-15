@@ -77,3 +77,39 @@ export async function csvFilter(input, column, op, value, output) {
   await writeFile(output, Papa.unparse(kept));
   return `Filtered ${res.data.length} → ${kept.length} row(s) where ${column} ${op} ${value} → ${output}`;
 }
+
+/* ---- Pro tools (require a valid VAULTDATA_LICENSE) ---- */
+
+export async function csvSort(input, column, order, output) {
+  const res = await readCsv(input);
+  const fields = res.meta.fields || [];
+  if (!fields.includes(column)) throw new Error(`Column "${column}" not found. Columns: ${fields.join(", ")}`);
+  const dir = order === "desc" ? -1 : 1;
+  const rows = [...res.data];
+  const allNum = rows.every(r => r[column] === "" || r[column] == null || !Number.isNaN(Number(r[column])));
+  rows.sort((a, b) => {
+    if (allNum) return (Number(a[column]) - Number(b[column])) * dir;
+    return String(a[column] ?? "").localeCompare(String(b[column] ?? "")) * dir;
+  });
+  await writeFile(output, Papa.unparse(rows));
+  return `Sorted ${rows.length} row(s) by ${column} ${order || "asc"} → ${output}`;
+}
+
+export async function csvDedupe(input, output) {
+  const res = await readCsv(input);
+  const seen = new Set(), kept = [];
+  for (const r of res.data) { const k = JSON.stringify(r); if (!seen.has(k)) { seen.add(k); kept.push(r); } }
+  await writeFile(output, Papa.unparse(kept));
+  return `Removed ${res.data.length - kept.length} duplicate(s); ${kept.length} row(s) → ${output}`;
+}
+
+export async function csvSelect(input, columns, output) {
+  const res = await readCsv(input);
+  const fields = res.meta.fields || [];
+  const cols = String(columns).split(",").map(s => s.trim()).filter(Boolean);
+  const missing = cols.filter(c => !fields.includes(c));
+  if (missing.length) throw new Error(`Unknown column(s): ${missing.join(", ")}. Have: ${fields.join(", ")}`);
+  const out = res.data.map(r => { const o = {}; for (const c of cols) o[c] = r[c]; return o; });
+  await writeFile(output, Papa.unparse(out));
+  return `Kept ${cols.length} column(s) [${cols.join(", ")}] for ${out.length} row(s) → ${output}`;
+}
